@@ -54,8 +54,6 @@ export default function Projects({ search }) {
           <Menu trigger={({ toggle }) => <button className="btn" onClick={toggle}><Icon name="sort" size={16} />Sort</button>}
             items={[['modified', 'Last modified'], ['name', 'Name'], ['status', 'Status']].map(([k, l]) => ({ label: (sort === k ? '✓ ' : '') + l, onClick: () => setSort(k) }))} />
           <span className="vsep" />
-          <Pager page={page} pages={pages} onPage={setPage} />
-          <span className="vsep" />
           <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" size={16} />Create Project</button>
         </div>
       </div>
@@ -79,17 +77,20 @@ export default function Projects({ search }) {
               <p className="proj-desc">{p.description}</p>
               <div className="proj-meta">{p.docTypes.join(' · ')}{p.documents ? ` · ${p.documents} documents` : ''}</div>
               <div className="proj-foot">
-                <span className={`pstatus ps-${STATUS_CLASS[p.status]}`}>{p.status === 'Inprogress' ? 'Inprogress' : p.status}</span>
+                <div className="proj-foot-info">
+                  <span className={`pstatus ps-${STATUS_CLASS[p.status]}`}>{p.status === 'Inprogress' ? 'Inprogress' : p.status}</span>
+                  <span className="muted small">Last Modified : {fmtDate(p.lastModified)}</span>
+                </div>
                 <button className={'icon-btn bm' + (p.bookmarked ? ' on' : '')} onClick={e => { e.stopPropagation(); bookmark(p) }}
                   aria-label={p.bookmarked ? 'Remove bookmark' : 'Bookmark project'} title={p.bookmarked ? 'Bookmarked' : 'Bookmark'}>
                   <Icon name="bookmark" size={18} />
                 </button>
-                <span className="muted small">Last Modified : {fmtDate(p.lastModified)}</span>
               </div>
             </article>
           ))}
         </div>
       )}
+      {pages > 1 && <div className="list-pagination"><Pager page={page} pages={pages} onPage={setPage} /></div>}
       {creating && <CreateProject meta={meta} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); refreshProjects() }} />}
     </div>
   )

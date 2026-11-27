@@ -70,16 +70,18 @@ export default function Documents({ pid, query }) {
     } catch (e) { toast({ kind: 'error', text: e.message }) }
   }
   const download = async () => {
-    const ids = selected.size ? [...selected] : (data?.rows || []).flatMap(r => r.docs.map(d => d.id))
+    const ids = [...selected]
     if (!ids.length) return toast('Nothing to download on this page')
     if (PREVIEW) return toast({ text: 'Downloads are turned off in the hosted preview', sub: 'Run the project locally to export extracted data as CSV.' })
-    const docs = await Promise.all(ids.map(id => get(`/api/documents/${id}`)))
-    const keys = [...new Set(docs.flatMap(d => d.fields.map(f => f.key)))]
-    downloadCSV(`${project.name}_${stage}_export.csv`, [
-      ['document', 'batch', 'document_type', 'stage', 'assigned_to', ...keys],
-      ...docs.map(d => [d.name, d.batchName, d.docTypeName, d.stage, d.assignedTo || '', ...keys.map(k => d.fields.find(f => f.key === k)?.value ?? '')]),
-    ])
-    toast({ kind: 'success', text: `Exported ${docs.length} documents (CSV)` })
+    try {
+      const docs = await Promise.all(ids.map(id => get(`/api/documents/${id}`)))
+      const keys = [...new Set(docs.flatMap(d => d.fields.map(f => f.key)))]
+      downloadCSV(`${project.name}_${stage}_export.csv`, [
+        ['document', 'batch', 'document_type', 'stage', 'assigned_to', ...keys],
+        ...docs.map(d => [d.name, d.batchName, d.docTypeName, d.stage, d.assignedTo || '', ...keys.map(k => d.fields.find(f => f.key === k)?.value ?? '')]),
+      ])
+      toast({ kind: 'success', text: `Exported ${docs.length} documents (CSV)` })
+    } catch (e) { toast({ kind: 'error', text: e.message }) }
   }
 
   const cols = SORTABLE[stage === 'in_progress' ? 'in_progress' : reviewable ? 'to_review' : 'done']
@@ -103,9 +105,7 @@ export default function Documents({ pid, query }) {
             {stage === 'in_progress' && <span className="with-info"><Toggle checked={!query.mine} onChange={v => set({ mine: v ? undefined : 1, page: 1 })} label="Show all batches" title="Off: only batches you uploaded or are assigned to" /><span title="Off shows only batches you uploaded or are assigned to"><Icon name="info" size={15} className="info" /></span></span>}
             <DateFilter from={filters.from} to={filters.to} onApply={(from, to) => set({ from, to, page: 1 })} />
             <button className="btn" onClick={() => setUploading(true)} disabled={project.status !== 'Ready'}><Icon name="upload" size={16} />Upload</button>
-            <button className="btn" onClick={download}><Icon name="download" size={16} />Download{selected.size ? ` (${selected.size})` : ''}</button>
             <span className="vsep" />
-            <Pager page={data?.page || 1} pages={data?.pages || 1} onPage={p => set({ page: p })} />
             {reviewable && <button className={'icon-btn bordered' + (panel ? ' active' : '')} onClick={() => setPanel(p => !p)} title="Job assignments" aria-label="Job assignments"><Icon name="users" size={17} /></button>}
           </div>
         </div>
@@ -145,6 +145,22 @@ export default function Documents({ pid, query }) {
                 onOpenDoc={d => go(`/p/${pid}/review/${d.id}`, { from: stage })}
                 onAct={act} onPreview={setPreview} meta={meta} />
             ))}
+          </div>
+        )}
+        {data?.pages > 1 && <div className="list-pagination"><Pager page={data.page} pages={data.pages} onPage={p => set({ page: p })} /></div>}
+        {reviewable && selected.size > 0 && (
+          <div className="selection-bar" role="toolbar" aria-label="Selected document actions">
+            <span className="selection-count">{selected.size} selected</span>
+            <button className="btn" onClick={download}><Icon name="download" size={16} />Download</button>
+            <Menu align="right" trigger={({ toggle, open }) => (
+              <button className="btn primary" onClick={toggle} aria-haspopup="menu" aria-expanded={open}>
+                Assign to <Icon name="chevDown" size={16} />
+              </button>
+            )} items={[...meta.reviewers, meta.user].map(r => ({
+              label: r.name,
+              icon: 'user',
+              onClick: () => assign(r.id),
+            }))} />
           </div>
         )}
       </div>
