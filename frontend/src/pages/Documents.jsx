@@ -233,7 +233,7 @@ function JobPanel({ workload, onClose, onAssign, selectedCount, onUnassigned }) 
   const [col, setCol] = useState('assigned')
   return (
     <aside className="jobpanel" aria-label="Job assignments">
-      <div className="jp-head"><h2>Job Assignments</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button></div>
+      <div className="jp-head"><h4>Job Assignments</h4><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button></div>
       <div className="jp-tabs">
         <span className="jp-name-h" title="Reviewer"><Icon name="users" size={16} /></span>
         {PANEL_COLS.map(([k, ic, t]) => <button key={k} className={col === k ? 'on' : ''} onClick={() => setCol(k)} title={t} aria-label={t}><Icon name={ic} size={16} /></button>)}
@@ -249,7 +249,7 @@ function JobPanel({ workload, onClose, onAssign, selectedCount, onUnassigned }) 
       </div>
       <div className="jp-foot">
         <div className="jp-hint"><Icon name="file" size={34} stroke={1.2} /><span>Select unassigned batches or documents from the document listing and assign them to selected reviewers.</span></div>
-        <button className="btn dark block" onClick={onUnassigned}>Unassigned ({workload.unassigned})</button>
+        <button className="btn primary block" onClick={onUnassigned}>Unassigned ({workload.unassigned})</button>
       </div>
     </aside>
   )

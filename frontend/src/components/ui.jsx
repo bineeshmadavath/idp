@@ -34,7 +34,7 @@ export function ToastProvider({ children }) {
 }
 
 /* ---------------------------------------------------------------- modal */
-export function Modal({ title, onClose, children, footer, width = 520 }) {
+export function Modal({ title, onClose, children, footer, width = 'var(--modal-width)' }) {
   useEffect(() => {
     const on = e => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', on)

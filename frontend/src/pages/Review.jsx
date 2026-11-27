@@ -31,13 +31,18 @@ export default function Review({ pid, docId, query }) {
   const [busy, setBusy] = useState(false)
   const [full, setFull] = useState(false)
   const [panelTab, setPanelTab] = useState('fields')
+  const [selectedTable, setSelectedTable] = useState(null)
+  const [panelWidth, setPanelWidth] = useState(450)
   const [ask, setAsk] = useState(null)
   const opened = useRef(Date.now())
   const viewer = useRef()
+  const rvMain = useRef(null)
+  const resizeStart = useRef(null)
   const from = query.from || doc?.stage || 'to_review'
 
   const load = () => get(`/api/documents/${docId}`).then(d => {
     setDoc(d); setEdits({}); setConfirmed(new Set()); setLines(null)
+    setSelectedTable(null)
     const first = d.fields.find(f => f.status !== 'valid')
     setSel(s => s || (first ? first.key : null))
   }).catch(e => toast({ kind: 'error', text: e.message }))
@@ -153,6 +158,25 @@ export default function Review({ pid, docId, query }) {
   const box = sel && layout.boxes[sel]
   const mins = Math.floor(Math.max(0, left) / 60), secs = Math.max(0, left) % 60
   const rows = lines ?? doc.lines
+  const tables = doc.table?.length ? [{ key: 'line-items', name: 'Line items', columns: doc.table, rows, confidences: doc.lineConf || [] }] : []
+  const panelWidthLimits = () => {
+    const available = (rvMain.current?.clientWidth || window.innerWidth) - 40
+    return { min: 320, max: Math.max(320, available - 320 - 28 - 12) }
+  }
+  const openTable = key => {
+    const available = (rvMain.current?.clientWidth || window.innerWidth) - 40
+    const limits = panelWidthLimits()
+    setSelectedTable(key)
+    setPanelWidth(Math.min(limits.max, Math.max(limits.min, Math.round(available / 2))))
+  }
+  const resizePanel = e => {
+    if (!resizeStart.current) return
+    const limits = panelWidthLimits()
+    const width = resizeStart.current.width + resizeStart.current.x - e.clientX
+    setPanelWidth(Math.min(limits.max, Math.max(limits.min, width)))
+  }
+  const widthLimits = panelWidthLimits()
+  const table = tables.find(t => t.key === selectedTable)
 
   return (
     <div className={'review' + (full ? ' full' : '')}>
@@ -178,9 +202,6 @@ export default function Review({ pid, docId, query }) {
           </select>
         </label>
         <span className="vsep" />
-        <button className="btn" disabled title="Create a new document from selected pages – not simulated in this demo"><Icon name="newDoc" size={16} />New Doc</button>
-        <button className="btn" disabled title="Split a multi-document file – not simulated in this demo"><Icon name="split" size={16} />Split Doc</button>
-        <span className="vsep" />
         {editable && <>
           <div className="split-btn">
             <button className="btn" onClick={() => save()} disabled={!dirty}><Icon name="save" size={16} />Save</button>
@@ -205,7 +226,7 @@ export default function Review({ pid, docId, query }) {
         </div>
       )}
 
-      <div className="rv-main">
+      <div className="rv-main" ref={rvMain} style={{ '--rv-panel-width': `${panelWidth}px` }}>
         <section className="rv-viewer card">
           <div className="rv-nav">
             <NavBox label="Batch" index={doc.nav.batchIndex} total={doc.nav.batchTotal} prev={doc.nav.prevBatch} next={doc.nav.nextBatch} onNav={nav} />
@@ -236,13 +257,29 @@ export default function Review({ pid, docId, query }) {
           </div>
         </section>
 
+        <div className="rv-resizer" role="separator" aria-orientation="vertical" aria-label="Resize Fields of Interest pane"
+          aria-valuemin={widthLimits.min} aria-valuemax={widthLimits.max} aria-valuenow={panelWidth} tabIndex={0}
+          onPointerDown={e => {
+            e.currentTarget.setPointerCapture(e.pointerId)
+            resizeStart.current = { x: e.clientX, width: panelWidth }
+          }}
+          onPointerMove={resizePanel}
+          onPointerUp={() => { resizeStart.current = null }}
+          onPointerCancel={() => { resizeStart.current = null }}
+          onKeyDown={e => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+            e.preventDefault()
+            const limits = panelWidthLimits()
+            const delta = e.key === 'ArrowLeft' ? 24 : -24
+            setPanelWidth(Math.min(limits.max, Math.max(limits.min, panelWidth + delta)))
+          }} />
         <aside className="rv-panel card">
           <div className="rv-tabs" role="tablist">
-            <button role="tab" aria-selected={panelTab === 'fields'} className={panelTab === 'fields' ? 'on' : ''} onClick={() => setPanelTab('fields')}>
+            <button role="tab" aria-selected={panelTab === 'fields'} className={panelTab === 'fields' ? 'on' : ''} onClick={() => { setPanelTab('fields'); setSelectedTable(null) }}>
               Field of Interest <span className="cnt">{fields.length}</span>{attention.length > 0 && <span className="dot-warn" title={`${attention.length} to check`} />}
             </button>
-            <button role="tab" aria-selected={panelTab === 'tables'} className={panelTab === 'tables' ? 'on' : ''} onClick={() => setPanelTab('tables')}>
-              Tables <span className="cnt">{rows.length ? 1 : 0}</span>{!lines && doc.lineConf.some(c => c * 100 < doc.thresholds.extraction) && <span className="dot-warn" title="Rows to check" />}
+            <button role="tab" aria-selected={panelTab === 'tables'} className={panelTab === 'tables' ? 'on' : ''} onClick={() => { setPanelTab('tables'); setSelectedTable(null) }}>
+              Tables <span className="cnt">{tables.length}</span>{!lines && doc.lineConf.some(c => c * 100 < doc.thresholds.extraction) && <span className="dot-warn" title="Rows to check" />}
             </button>
           </div>
           {panelTab === 'fields' ? (
@@ -258,23 +295,39 @@ export default function Review({ pid, docId, query }) {
             </div>
           ) : (
             <div className="rv-tabbody">
-              {rows.length > 0 ? <>
-                <div className="rv-sub small"><b>Line items</b> <span className="muted">({rows.length} rows)</span></div>
+              {table ? <>
+                <div className="table-detail-head">
+                  <button className="link-btn" onClick={() => setSelectedTable(null)}><Icon name="chevLeft" size={15} />Tables</button>
+                  <b>{table.name}</b>
+                  <span className="muted small">{table.rows.length} rows</span>
+                </div>
                 <div className="lines">
                   <table>
-                    <thead><tr>{doc.table.map(c => <th key={c}>{c.replace('_', ' ')}</th>)}{editable && <th />}</tr></thead>
+                    <thead><tr>{table.columns.map(c => <th key={c}>{c.replace('_', ' ')}</th>)}{editable && <th />}</tr></thead>
                     <tbody>
-                      {rows.map((r, i) => (
-                        <tr key={i} className={!lines && doc.lineConf[i] * 100 < doc.thresholds.extraction ? 'low' : ''} title={`Row confidence ${Math.round((doc.lineConf[i] || 1) * 100)}%`}>
-                          {doc.table.map(c => <td key={c} className={'c-' + c}><input value={r[c] ?? ''} disabled={!editable} onChange={e => setLines((lines ?? doc.lines).map((x, j) => j === i ? { ...x, [c]: e.target.value } : x))} /></td>)}
+                      {table.rows.map((r, i) => (
+                        <tr key={i} className={!lines && table.confidences[i] * 100 < doc.thresholds.extraction ? 'low' : ''} title={`Row confidence ${Math.round((table.confidences[i] || 1) * 100)}%`}>
+                          {table.columns.map(c => <td key={c} className={'c-' + c}><input value={r[c] ?? ''} disabled={!editable} onChange={e => setLines((lines ?? doc.lines).map((x, j) => j === i ? { ...x, [c]: e.target.value } : x))} /></td>)}
                           {editable && <td><button className="icon-btn sm" onClick={() => setLines((lines ?? doc.lines).filter((_, j) => j !== i))} aria-label="Delete row"><Icon name="trash" size={14} /></button></td>}
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  {!table.rows.length && !editable && <div className="muted small pad-s">No rows extracted for this table.</div>}
                 </div>
-                {editable && <button className="link-btn add-row" onClick={() => setLines([...(lines ?? doc.lines), Object.fromEntries(doc.table.map(c => [c, '']))])}><Icon name="plus" size={14} /> Add row</button>}
-              </> : <div className="muted small pad-s">No tables extracted for this document type.</div>}
+                {editable && <button className="link-btn add-row" onClick={() => setLines([...(lines ?? doc.lines), Object.fromEntries(table.columns.map(c => [c, '']))])}><Icon name="plus" size={14} /> Add row</button>}
+              </> : tables.length > 0 ? (
+                <ul className="table-list" aria-label="Tables in this document">
+                  {tables.map(t => <li key={t.key}>
+                    <button className="table-entry" onClick={() => openTable(t.key)}>
+                      <Icon name="table" size={18} />
+                      <span className="table-entry-name">{t.name}</span>
+                      <span className="muted small">{t.rows.length} rows</span>
+                      <Icon name="chevRight" size={16} />
+                    </button>
+                  </li>)}
+                </ul>
+              ) : <div className="muted small pad-s">No tables available for this document type.</div>}
             </div>
           )}
         </aside>

@@ -53,7 +53,14 @@ function Shell() {
       <div className={'app' + (reviewing ? ' reviewing' : '')}>
         {!reviewing && (
           <header className="topbar">
-            <a className="brand" href="#/">SmartVision</a>
+            <a className="brand" href="#/">
+              <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="8" fill="currentColor" />
+                <path d="M21.5 10.5a8 8 0 1 0 0 11" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" />
+                <circle cx="21.5" cy="16" r="2" fill="var(--color-accent-500)" />
+              </svg>
+              <span>Clarix</span>
+            </a>
             <form className="gsearch" onSubmit={onSearch} role="search">
               <Icon name="search" size={16} />
               <input value={search} onChange={e => setSearch(e.target.value)}
@@ -67,10 +74,6 @@ function Shell() {
               <button className="icon-btn" title="Notifications" aria-label="Notifications" onClick={() => toast('Notification centre arrives in version 2')}><Icon name="bell" size={20} /><span className="dot" /></button>
               {inProject && <button className="icon-btn help" title="Help and support" aria-label="Help" onClick={() => toast('Help: hover any icon for a tooltip; the review workspace supports Tab / Enter / Esc')}><Icon name="help" size={18} /></button>}
               <ProfileMenu meta={meta} motion={motion} setMotion={setMotion} />
-            </div>
-            <div className="ust">
-              <span><b>UST</b> SmartOps</span>
-              <Icon name="grid" size={20} />
             </div>
           </header>
         )}
@@ -97,7 +100,7 @@ function ProfileMenu({ meta, motion, setMotion }) {
       <button className="avatar-btn" onClick={() => setOpen(o => !o)} aria-label="Profile">{meta.user.id}</button>
       {open && (
         <div className="menu menu-right profile" onMouseLeave={() => setOpen(false)}>
-          <div className="profile-head"><Avatar id={meta.user.id} size={36} /><div><b>{meta.user.name}</b><div className="muted">{meta.user.role}</div></div></div>
+          <div className="profile-head"><Avatar id={meta.user.id} size={40} /><div><b>{meta.user.name}</b><div className="muted">{meta.user.role}</div></div></div>
           <div className="menu-div" />
           <label className="menu-item"><input type="checkbox" checked={motion} onChange={e => setMotion(e.target.checked)} /> Animations</label>
         </div>
@@ -107,30 +110,34 @@ function ProfileMenu({ meta, motion, setMotion }) {
 }
 
 function Sidebar({ inProject, pid, section }) {
+  const [collapsed, setCollapsed] = useState(false)
   const items = inProject
     ? [
       { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: `#/p/${pid}` },
       { key: 'documents', label: 'Documents', icon: 'documents', href: `#/p/${pid}/documents` },
-      { key: 'search', label: 'Search', icon: 'search', soon: true },
-      { key: 'compare', label: 'Compare', icon: 'compare', soon: true },
     ]
     : [{ key: 'projects', label: 'Projects', icon: 'projects', href: '#/' }]
   const active = inProject ? section : 'projects'
   return (
-    <nav className="sidebar" aria-label="Main">
-      <div className="nav-top">
+    <nav className={'sidebar' + (collapsed ? ' collapsed' : '')} aria-label="Main">
+      <div className="nav-top" id="main-navigation">
         {inProject && <a className="nav-item nav-back" href="#/" title="All projects"><Icon name="projects" size={20} /><span>Projects</span></a>}
         {items.map(it => it.soon ? (
           <span key={it.key} className="nav-item disabled" title={`${it.label} – coming in version 2`}><Icon name={it.icon} size={21} /><span>{it.label}</span></span>
         ) : (
-          <a key={it.key} className={'nav-item' + (active === it.key ? ' active' : '')} href={it.href}><Icon name={it.icon} size={21} /><span>{it.label}</span></a>
+          <a key={it.key} className={'nav-item' + (active === it.key ? ' active' : '')} href={it.href} title={it.label}><Icon name={it.icon} size={21} /><span>{it.label}</span></a>
         ))}
       </div>
       <div className="nav-bottom">
         {inProject
-          ? <a className={'nav-item' + (active === 'config' ? ' active' : '')} href={`#/p/${pid}/config`}><Icon name="settings" size={20} /><span>Config</span></a>
+          ? <a className={'nav-item' + (active === 'config' ? ' active' : '')} href={`#/p/${pid}/config`} title="Config"><Icon name="settings" size={20} /><span>Config</span></a>
           : <span className="nav-item disabled" title="Master configuration – coming in version 2"><Icon name="settings" size={20} /><span>Master Co…</span></span>}
-        <div className="ust-mark" aria-label="UST"><span>U</span><span className="sq" /><span>S</span><span>T</span></div>
+        <button className="nav-toggle" type="button" onClick={() => setCollapsed(value => !value)}
+          aria-label={collapsed ? 'Expand menu' : 'Collapse menu'} aria-expanded={!collapsed} aria-controls="main-navigation"
+          title={collapsed ? 'Expand menu' : 'Collapse menu'}>
+          <Icon name={collapsed ? 'chevRight' : 'chevLeft'} size={18} />
+          <span>{collapsed ? 'Expand menu' : 'Collapse menu'}</span>
+        </button>
       </div>
     </nav>
   )

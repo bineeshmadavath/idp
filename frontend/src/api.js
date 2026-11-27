@@ -50,7 +50,7 @@ export async function api(method, path, body, params) {
   try {
     res = await fetch(url, opts)
   } catch {
-    throw new ApiError(0, 'Cannot reach the SmartVision API. Is the backend running on port 8000?')
+    throw new ApiError(0, 'Cannot reach the Clarix API. Is the backend running on port 8000?')
   }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new ApiError(res.status, data.message || data.detail || 'Request failed', data.detail)
